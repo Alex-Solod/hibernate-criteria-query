@@ -1,10 +1,10 @@
 package ma.hibernate.dao;
 
-import static ma.hibernate.util.HibernateUtil.sessionFactory;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -44,6 +44,8 @@ public class PhoneDaoImpl extends AbstractDao implements PhoneDao {
 
     @Override
     public List<Phone> findAll(Map<String, String[]> params) {
+        SessionFactory sessionFactory = HibernateUtil.getSessionFactory();
+
         try (Session session = sessionFactory.openSession()) {
             CriteriaBuilder cb = session.getCriteriaBuilder();
             CriteriaQuery<Phone> query = cb.createQuery(Phone.class);
@@ -60,8 +62,14 @@ public class PhoneDaoImpl extends AbstractDao implements PhoneDao {
 
             List<Predicate> predicates = params.entrySet().stream()
                     .filter(e -> allowedFields.containsKey(e.getKey()))
-                    .map(e -> Map.entry(allowedFields.get(e.getKey()), e.getValue()))
-                    .filter(e -> e.getValue() != null && e.getValue().length > 0)
+                    .map(e -> Map.entry(
+                            allowedFields.get(e.getKey()),
+                            Arrays.stream(e.getValue())
+                                    .flatMap(v -> Arrays.stream(v.split(",")))
+                                    .map(String::trim)
+                                    .toArray(String[]::new)
+                    ))
+                    .filter(e -> e.getValue().length > 0)
                     .map(e -> root.get(e.getKey()).in((Object[]) e.getValue()))
                     .collect(Collectors.toList());
 
