@@ -74,6 +74,28 @@ public class Phone implements Cloneable {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Phone phone = (Phone) o;
+        return java.util.Objects.equals(model, phone.model)
+                && java.util.Objects.equals(maker, phone.maker)
+                && java.util.Objects.equals(color, phone.color)
+                && java.util.Objects.equals(os, phone.os)
+                && java.util.Objects.equals(countryManufactured, phone.countryManufactured);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(model, maker, color, os, countryManufactured);
+    }
+
+    @Override
     public String toString() {
         return "Phone{"
             + "id=" + id

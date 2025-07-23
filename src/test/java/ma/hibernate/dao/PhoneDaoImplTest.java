@@ -66,8 +66,8 @@ public class PhoneDaoImplTest extends AbstractTest {
         boolean isSolutionWithTwoForLoops = findAllMethodContent.split("for \\(").length <= 3;
         Assert.assertTrue(
                 "In your solution you shouldn't use more than "
-                    + MAX_NUMBER_OF_FOR_LOOPS_IN_FIND_ALL_METHOD
-                    + " for loops",
+                        + MAX_NUMBER_OF_FOR_LOOPS_IN_FIND_ALL_METHOD
+                        + " for loops",
                 isSolutionWithTwoForLoops
         );
     }
