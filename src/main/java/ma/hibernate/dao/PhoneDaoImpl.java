@@ -1,5 +1,6 @@
 package ma.hibernate.dao;
 
+import static ma.hibernate.util.HibernateUtil.sessionFactory;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
@@ -15,19 +16,12 @@ import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
 
 public class PhoneDaoImpl extends AbstractDao implements PhoneDao {
-    private static boolean cleared = false;
-
     public PhoneDaoImpl(SessionFactory sessionFactory) {
         super(sessionFactory);
     }
 
     @Override
     public Phone create(Phone phone) {
-        if (!cleared) {
-            clearAll(); // очищаем таблицу один раз перед первым insert'ом
-            cleared = true;
-        }
-
         Session session = null;
         Transaction transaction = null;
         try {
@@ -50,7 +44,6 @@ public class PhoneDaoImpl extends AbstractDao implements PhoneDao {
 
     @Override
     public List<Phone> findAll(Map<String, String[]> params) {
-        SessionFactory sessionFactory = HibernateUtil.getSessionFactory();
         try (Session session = sessionFactory.openSession()) {
             CriteriaBuilder cb = session.getCriteriaBuilder();
             CriteriaQuery<Phone> query = cb.createQuery(Phone.class);
@@ -66,8 +59,9 @@ public class PhoneDaoImpl extends AbstractDao implements PhoneDao {
             params = Objects.requireNonNullElse(params, Map.of());
 
             List<Predicate> predicates = params.entrySet().stream()
+                    .filter(e -> allowedFields.containsKey(e.getKey()))
                     .map(e -> Map.entry(allowedFields.get(e.getKey()), e.getValue()))
-                    .filter(e -> e.getKey() != null && e.getValue() != null && e.getValue().length > 0)
+                    .filter(e -> e.getValue() != null && e.getValue().length > 0)
                     .map(e -> root.get(e.getKey()).in((Object[]) e.getValue()))
                     .collect(Collectors.toList());
 
@@ -76,15 +70,6 @@ public class PhoneDaoImpl extends AbstractDao implements PhoneDao {
                     : cb.and(predicates.toArray(new Predicate[0])));
 
             return session.createQuery(query).getResultList();
-        }
-    }
-
-    public void clearAll() {
-        SessionFactory sessionFactory = HibernateUtil.getSessionFactory();
-        try (Session session = sessionFactory.openSession()) {
-            Transaction tx = session.beginTransaction();
-            session.createMutationQuery("DELETE FROM Phone").executeUpdate();
-            tx.commit();
         }
     }
 }
