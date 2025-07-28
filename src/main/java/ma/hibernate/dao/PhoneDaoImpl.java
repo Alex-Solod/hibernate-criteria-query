@@ -4,13 +4,11 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import ma.hibernate.model.Phone;
-import ma.hibernate.util.HibernateUtil;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
@@ -22,62 +20,56 @@ public class PhoneDaoImpl extends AbstractDao implements PhoneDao {
 
     @Override
     public Phone create(Phone phone) {
-        Session session = null;
         Transaction transaction = null;
-        try {
-            session = HibernateUtil.getSessionFactory().openSession();
+        try (Session session = factory.openSession()) {
             transaction = session.beginTransaction();
             session.persist(phone);
             transaction.commit();
+            return phone;
         } catch (Exception e) {
             if (transaction != null) {
                 transaction.rollback();
             }
-            throw new RuntimeException("Can't insert phone into DB " + phone, e);
-        } finally {
-            if (session != null) {
-                session.close();
-            }
+            throw new RuntimeException("Can`t add phone in to DB!: " + phone, e);
         }
-        return phone;
     }
 
     @Override
     public List<Phone> findAll(Map<String, String[]> params) {
-        SessionFactory sessionFactory = HibernateUtil.getSessionFactory();
+        try (Session session = factory.openSession()) {
+            CriteriaBuilder criteriaBuilder = session.getCriteriaBuilder();
 
-        try (Session session = sessionFactory.openSession()) {
-            CriteriaBuilder cb = session.getCriteriaBuilder();
-            CriteriaQuery<Phone> query = cb.createQuery(Phone.class);
-            Root<Phone> root = query.from(Phone.class);
+            CriteriaQuery<Phone> query = criteriaBuilder.createQuery(Phone.class);
 
-            Map<String, String> allowedFields = Map.of(
-                    "producer", "maker",
-                    "color", "color",
-                    "countryManufactured", "countryManufactured",
-                    "model", "model"
-            );
-
-            params = Objects.requireNonNullElse(params, Map.of());
+            Root<Phone> phoneRoot = query.from(Phone.class);
 
             List<Predicate> predicates = params.entrySet().stream()
-                    .filter(e -> allowedFields.containsKey(e.getKey()))
-                    .map(e -> Map.entry(
-                            allowedFields.get(e.getKey()),
-                            Arrays.stream(e.getValue())
-                                    .flatMap(v -> Arrays.stream(v.split(",")))
-                                    .map(String::trim)
-                                    .filter(s -> !s.isEmpty())
-                                    .toArray(String[]::new)
-                    ))
-                    .filter(e -> e.getValue().length > 0)
-                    .map(e -> root.get(e.getKey()).in((Object[]) e.getValue()))
+                    .filter(e -> List.of("countryManufactured", "model", "maker", "color")
+                            .contains(e.getKey()))
+                    .map(e -> phoneRoot.get(e.getKey()).in((Object[]) e.getValue()))
                     .collect(Collectors.toList());
 
-            query.where(predicates.isEmpty()
-                    ? cb.conjunction()
-                    : cb.and(predicates.toArray(new Predicate[0])));
+            query.select(phoneRoot).where(criteriaBuilder
+                    .and(predicates.toArray(new Predicate[0])));
 
+            Optional.ofNullable(params.get("sortBy"))
+                    .map(array -> array.length > 0 ? array[0] : null)
+                    .filter(field -> {
+                        try {
+                            Phone.class.getDeclaredField(field);
+                            return true;
+                        } catch (NoSuchFieldException e) {
+                            return false;
+                        }
+                    })
+                    .ifPresent(sortBy -> {
+                        boolean desc = Optional.ofNullable(params.get("order"))
+                                .map(a -> a.length > 0 ? a[0] : null)
+                                .map("desc"::equalsIgnoreCase)
+                                .orElse(false);
+                        query.orderBy(desc ? criteriaBuilder.desc(phoneRoot.get(sortBy))
+                                : criteriaBuilder.asc(phoneRoot.get(sortBy)));
+                    });
             return session.createQuery(query).getResultList();
         }
     }
