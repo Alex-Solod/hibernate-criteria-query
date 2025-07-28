@@ -52,7 +52,7 @@ public class PhoneDaoImpl extends AbstractDao implements PhoneDao {
             Root<Phone> root = query.from(Phone.class);
 
             Map<String, String> allowedFields = Map.of(
-                    "producer", "maker",
+                    "maker", "maker",
                     "color", "color",
                     "countryManufactured", "countryManufactured",
                     "model", "model"
@@ -65,8 +65,8 @@ public class PhoneDaoImpl extends AbstractDao implements PhoneDao {
                     .map(e -> Map.entry(
                             allowedFields.get(e.getKey()),
                             Arrays.stream(e.getValue())
-                                    .flatMap(v -> Arrays.stream(v.split(",")))
                                     .map(String::trim)
+                                    .filter(s -> !s.isEmpty())
                                     .toArray(String[]::new)
                     ))
                     .filter(e -> e.getValue().length > 0)
